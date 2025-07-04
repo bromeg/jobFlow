@@ -4,6 +4,7 @@ struct JobDetailView: View {
     let job: JobApplication
     @Environment(\.managedObjectContext) private var viewContext
     @State private var editableStatus: JobStatus
+    @State private var editableDateApplied: Date
     @State private var customNotes: [CustomNote] = []
     @State private var isLoaded = false
 
@@ -11,6 +12,8 @@ struct JobDetailView: View {
         self.job = job
         // Default to .applied if status is nil or not matching
         _editableStatus = State(initialValue: JobStatus(rawValue: job.status ?? "") ?? .applied)
+        // Default to current date if dateApplied is nil
+        _editableDateApplied = State(initialValue: job.dateApplied ?? Date())
     }
 
     var body: some View {
@@ -59,10 +62,19 @@ struct JobDetailView: View {
                         Text("Salary: \(salary)")
                     }
 
-                    if let date = job.dateApplied {
-                        Text("Applied on \(formattedDate(date))")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                    HStack {
+                        Text("Application Date:")
+                            .bold()
+                        DatePicker("Application Date", selection: $editableDateApplied, displayedComponents: .date)
+                            .datePickerStyle(.compact)
+                            .onChange(of: editableDateApplied) { newDate in
+                                job.dateApplied = newDate
+                                do {
+                                    try viewContext.save()
+                                } catch {
+                                    print("Failed to update date: \(error.localizedDescription)")
+                                }
+                            }
                     }
                 }
 

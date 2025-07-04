@@ -13,6 +13,7 @@ struct AddJobView: View {
     @State private var fitScore: Int16 = 75
     @State private var notes = ""
     @State private var customNotes: [CustomNoteDraft] = []
+    @State private var dateApplied = Date()
 
     var body: some View {
         NavigationStack {
@@ -53,6 +54,10 @@ struct AddJobView: View {
             Text("Salary Range")
             TextField("e.g. $90,000 - $110,000", text: $salaryRange)
                 .textFieldStyle(.roundedBorder)
+            
+            Text("Application Date")
+            DatePicker("Application Date", selection: $dateApplied, displayedComponents: .date)
+                .datePickerStyle(.compact)
         }
     }
     
@@ -132,7 +137,7 @@ struct AddJobView: View {
         newJob.status = status.rawValue
         newJob.fitScore = fitScore
         newJob.notes = notes
-        newJob.dateApplied = Date()
+        newJob.dateApplied = dateApplied
         for draft in customNotes where !draft.title.isEmpty || !draft.content.isEmpty {
             let note = CustomNote(context: viewContext)
             note.id = UUID()
