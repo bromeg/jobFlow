@@ -1,10 +1,3 @@
-//
-//  ContentView.swift
-//  JobFlow
-//
-//  Created by Megan Brown on 7/4/25.
-//
-
 import SwiftUI
 import CoreData
 
@@ -12,77 +5,91 @@ struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
 
     @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
+        sortDescriptors: [NSSortDescriptor(keyPath: \JobApplication.dateApplied, ascending: false)],
         animation: .default)
-    private var items: FetchedResults<Item>
+    private var applications: FetchedResults<JobApplication>
+
+    @State private var showingAddJob = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp!, formatter: itemFormatter)")
-                    } label: {
-                        Text(item.timestamp!, formatter: itemFormatter)
+                Section(header: Text("My Applications").font(.title2)) {
+                    ForEach(applications) { job in
+                        NavigationLink(destination: JobDetailView(job: job)) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(job.title ?? "Untitled")
+                                            .font(.headline)
+
+                                        Text(job.company ?? "Unknown Company")
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                    }
+
+                                    Spacer()
+
+                                    Text(job.status ?? "N/A")
+                                        .font(.caption)
+                                        .padding(6)
+                                        .background(statusColor(for: job.status))
+                                        .foregroundColor(.white)
+                                        .clipShape(Capsule())
+                                }
+
+                                ProgressView("Fit: \(job.fitScore)%", value: Double(job.fitScore), total: 100)
+                                    .progressViewStyle(.linear)
+                                    .tint(.blue)
+
+                                if let date = job.dateApplied {
+                                    Text("Applied on \(formattedDate(date))")
+                                        .font(.caption2)
+                                        .foregroundColor(.gray)
+                                }
+                            }
+                            .padding(.vertical, 8)
+                        }
                     }
+
                 }
-                .onDelete(perform: deleteItems)
             }
+            .navigationTitle("Applications")
             .toolbar {
-#if os(iOS)
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-#endif
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: {
+                        showingAddJob = true
+                    }) {
+                        Label("Add Job", systemImage: "plus")
                     }
                 }
             }
-            Text("Select an item")
-        }
-    }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(context: viewContext)
-            newItem.timestamp = Date()
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            offsets.map { items[$0] }.forEach(viewContext.delete)
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+            .sheet(isPresented: $showingAddJob) {
+                AddJobView()
+                    .environment(\.managedObjectContext, viewContext)
             }
         }
     }
 }
 
-private let itemFormatter: DateFormatter = {
+private func statusColor(for status: String?) -> Color {
+    switch status {
+    case "Applied":
+        return .blue
+    case "Interview":
+        return .orange
+    case "Offer":
+        return .green
+    case "Rejected":
+        return .red
+    default:
+        return .gray
+    }
+}
+
+private func formattedDate(_ date: Date) -> String {
     let formatter = DateFormatter()
-    formatter.dateStyle = .short
-    formatter.timeStyle = .medium
-    return formatter
-}()
-
-#Preview {
-    ContentView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+    formatter.dateStyle = .medium
+    return formatter.string(from: date)
 }
+
