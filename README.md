@@ -1,4 +1,4 @@
-# Personal Job Application Application
+# Personal Job Application Tracker
 
 ## Purpose
 JobFlow is a job application tracking and personal career management tool. It is designed to intelligently manage and optimize the job search experience by connecting with the user’s email, providing tailored resume recommendations, and integrating budgeting tools to support life planning around career transitions.
