@@ -1,9 +1,6 @@
 import SwiftUI
 import CoreData
 
-// Import the JobStatus enum
-@_exported import struct JobFlow.JobStatus
-
 struct AddJobView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) private var dismiss
@@ -21,82 +18,9 @@ struct AddJobView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Group {
-                        Text("Job Title")
-                        TextField("e.g. Frontend Developer", text: $title)
-                            .textFieldStyle(.roundedBorder)
-
-                        Text("Company")
-                        TextField("e.g. TechCorp", text: $company)
-                            .textFieldStyle(.roundedBorder)
-
-                        Text("Location")
-                        TextField("e.g. Remote or New York, NY", text: $location)
-                            .textFieldStyle(.roundedBorder)
-
-                        Text("Salary Range")
-                        TextField("e.g. $90,000 - $110,000", text: $salaryRange)
-                            .textFieldStyle(.roundedBorder)
-                    }
-
-                    Group {
-                        Text("Status")
-                        Picker("Status", selection: $status) {
-                            ForEach(JobStatus.allCases) { status in
-                                Text(status.rawValue).tag(status)
-                            }
-                        }
-                        .pickerStyle(.menu)
-
-                        Text("Fit Score: \(fitScore)%")
-                        Slider(value: Binding(
-                            get: { Double(fitScore) },
-                            set: { fitScore = Int16($0) }),
-                               in: 0...100, step: 5)
-                    }
-
-                    Group {
-                        Text("Notes")
-                        TextEditor(text: $notes)
-                            .frame(height: 120)
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.3)))
-
-                        Text("Custom Notes")
-                            .font(.headline)
-                        ForEach($customNotes) { $note in
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    TextField("Note Title", text: $note.title)
-                                        .textFieldStyle(.roundedBorder)
-                                    Button(action: {
-                                        if let idx = customNotes.firstIndex(of: note) {
-                                            customNotes.remove(at: idx)
-                                        }
-                                    }) {
-                                        Image(systemName: "minus.circle.fill")
-                                            .foregroundColor(.red)
-                                    }
-                                }
-                                TextEditor(text: $note.content)
-                                    .frame(height: 80)
-                                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.2)))
-                            }
-                            .padding(.vertical, 4)
-                        }
-                        Button(action: {
-                            customNotes.append(CustomNoteDraft())
-                        }) {
-                            Label("Add Custom Note", systemImage: "plus.circle")
-                        }
-                        .padding(.top, 4)
-
-                        Button(action: addJob) {
-                            Label("Save Job", systemImage: "checkmark.circle.fill")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .padding(.top, 10)
-                    }
-
+                    basicInfoSection
+                    statusSection
+                    notesSection
                     Spacer()
                 }
                 .padding()
@@ -110,6 +34,92 @@ struct AddJobView: View {
                 }
             }
         }
+    }
+    
+    private var basicInfoSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Job Title")
+            TextField("e.g. Frontend Developer", text: $title)
+                .textFieldStyle(.roundedBorder)
+
+            Text("Company")
+            TextField("e.g. TechCorp", text: $company)
+                .textFieldStyle(.roundedBorder)
+
+            Text("Location")
+            TextField("e.g. Remote or New York, NY", text: $location)
+                .textFieldStyle(.roundedBorder)
+
+            Text("Salary Range")
+            TextField("e.g. $90,000 - $110,000", text: $salaryRange)
+                .textFieldStyle(.roundedBorder)
+        }
+    }
+    
+    private var statusSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Status")
+            Picker("Status", selection: $status) {
+                ForEach(JobStatus.allCases) { status in
+                    Text(status.rawValue).tag(status)
+                }
+            }
+            .pickerStyle(.menu)
+
+            Text("Fit Score: \(fitScore)%")
+            Slider(value: Binding(
+                get: { Double(fitScore) },
+                set: { fitScore = Int16($0) }),
+                   in: 0...100, step: 5)
+        }
+    }
+    
+    private var notesSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Notes")
+            TextEditor(text: $notes)
+                .frame(height: 120)
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.3)))
+
+            Text("Custom Notes")
+                .font(.headline)
+            ForEach($customNotes) { $note in
+                customNoteRow(note: $note)
+            }
+            Button(action: {
+                customNotes.append(CustomNoteDraft())
+            }) {
+                Label("Add Custom Note", systemImage: "plus.circle")
+            }
+            .padding(.top, 4)
+
+            Button(action: addJob) {
+                Label("Save Job", systemImage: "checkmark.circle.fill")
+            }
+            .buttonStyle(.borderedProminent)
+            .padding(.top, 10)
+        }
+    }
+    
+    private func customNoteRow(note: Binding<CustomNoteDraft>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                TextField("Note Title", text: note.title)
+                    .textFieldStyle(.roundedBorder)
+                Button(action: {
+                    if let idx = customNotes.firstIndex(of: note.wrappedValue) {
+                        customNotes.remove(at: idx)
+                    }
+                }) {
+                    Image(systemName: "minus.circle.fill")
+                        .foregroundColor(.red)
+                }
+            }
+            TextEditor(text: note.content)
+                .frame(height: 80)
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.2)))
+        }
+        .padding(.vertical, 4)
     }
 
     private func addJob() {
