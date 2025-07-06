@@ -24,5 +24,36 @@ extension JobApplication {
             }
         }
     }
+
+    var locationTypeEnum: LocationType {
+        get { LocationType(rawValue: self.locationType ?? "") ?? .remote }
+        set { self.locationType = newValue.rawValue }
+    }
+
+    var appliedViaEnum: AppliedVia {
+        get { AppliedVia(rawValue: self.appliedVia ?? "") ?? .other }
+        set { self.appliedVia = newValue.rawValue }
+    }
 }
+
+enum LocationType: String, CaseIterable, Identifiable {
+    case remote = "Remote"
+    case hybrid = "Hybrid"
+    case inOffice = "In Office"
+
+    var id: String { self.rawValue }
+}
+
+enum AppliedVia: String, CaseIterable, Identifiable {
+    case linkedIn = "LinkedIn"
+    case indeed = "Indeed"
+    case companySite = "Company Site"
+    case referral = "Referral"
+    case glassdoor = "Glassdoor"
+    case builtIn = "BuiltIn"
+    case other = "Other"
+
+    var id: String { self.rawValue }
+}
+
 

@@ -14,6 +14,10 @@ struct AddJobView: View {
     @State private var notes = ""
     @State private var customNotes: [CustomNoteDraft] = []
     @State private var dateApplied = Date()
+    @State private var jobDescription = ""
+    @State private var jobURL = ""
+    @State private var locationType: LocationType = .remote
+    @State private var appliedVia: AppliedVia = .other
 
     var body: some View {
         NavigationStack {
@@ -45,31 +49,56 @@ struct AddJobView: View {
     
     private var basicInfoSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Job Title")
+            Text("Job Title").bold()
             TextField("e.g. Frontend Developer", text: $title)
                 .textFieldStyle(.roundedBorder)
 
-            Text("Company")
+            Text("Company").bold()
             TextField("e.g. TechCorp", text: $company)
                 .textFieldStyle(.roundedBorder)
 
-            Text("Location")
+            Text("Location").bold()
             TextField("e.g. Remote or New York, NY", text: $location)
                 .textFieldStyle(.roundedBorder)
 
-            Text("Salary Range")
+            Text("Salary Range").bold()
             TextField("e.g. $90,000 - $110,000", text: $salaryRange)
                 .textFieldStyle(.roundedBorder)
             
-            Text("Application Date")
+            Text("Application Date").bold()
             DatePicker("Application Date", selection: $dateApplied, displayedComponents: .date)
                 .datePickerStyle(.compact)
+
+            Text("Job Description").bold()
+            TextEditor(text: $jobDescription)
+                .frame(height: 100)
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.3)))
+
+            Text("Job URL").bold()
+            TextField("https://...", text: $jobURL)
+                .textFieldStyle(.roundedBorder)
+
+            Text("Location Type").bold()
+            Picker("", selection: $locationType) {
+                ForEach(LocationType.allCases) { type in
+                    Text(type.rawValue).tag(type)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Text("Applied Via").bold()
+            Picker("", selection: $appliedVia) {
+                ForEach(AppliedVia.allCases) { via in
+                    Text(via.rawValue).tag(via)
+                }
+            }
+            .pickerStyle(.menu)
         }
     }
     
     private var statusSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Status")
+            Text("Status").bold()
             Picker("Status", selection: $status) {
                 ForEach(JobStatus.allCases) { status in
                     Text(status.rawValue).tag(status)
@@ -77,7 +106,7 @@ struct AddJobView: View {
             }
             .pickerStyle(.menu)
 
-            Text("Fit Score: \(fitScore)%")
+            Text("Fit Score: \(fitScore)%").bold()
             Slider(value: Binding(
                 get: { Double(fitScore) },
                 set: { fitScore = Int16($0) }),
@@ -87,13 +116,12 @@ struct AddJobView: View {
     
     private var notesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Notes")
+            Text("Notes").bold()
             TextEditor(text: $notes)
                 .frame(height: 120)
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.3)))
 
-            Text("Custom Notes")
-                .font(.headline)
+            Text("Custom Notes").bold()
             ForEach($customNotes) { $note in
                 customNoteRow(note: $note)
             }
@@ -144,6 +172,10 @@ struct AddJobView: View {
         newJob.fitScore = fitScore
         newJob.notes = notes
         newJob.dateApplied = dateApplied
+        newJob.jobDescription = jobDescription
+        newJob.url = jobURL
+        newJob.locationType = locationType.rawValue
+        newJob.appliedVia = appliedVia.rawValue
         for draft in customNotes where !draft.title.isEmpty || !draft.content.isEmpty {
             let note = CustomNote(context: viewContext)
             note.id = UUID()

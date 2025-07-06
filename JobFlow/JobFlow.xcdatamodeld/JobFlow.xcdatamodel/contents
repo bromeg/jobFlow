@@ -10,16 +10,24 @@
         <attribute name="timestamp" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
     </entity>
     <entity name="JobApplication" representedClassName="JobApplication" syncable="YES" codeGenerationType="class">
+        <attribute name="appliedVia" optional="YES" attributeType="String"/>
         <attribute name="company" optional="YES" attributeType="String"/>
         <attribute name="dateApplied" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="fitScore" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="hasReachedInterview" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="jobDescription" optional="YES" attributeType="String"/>
         <attribute name="location" optional="YES" attributeType="String"/>
+        <attribute name="locationType" optional="YES" attributeType="String"/>
         <attribute name="notes" optional="YES" attributeType="String"/>
+        <attribute name="recruiterEmail" optional="YES" attributeType="String"/>
+        <attribute name="recruiterName" optional="YES" attributeType="String"/>
         <attribute name="salaryRange" optional="YES" attributeType="String"/>
+        <attribute name="stageHistory" optional="YES" attributeType="Transformable"/>
         <attribute name="status" optional="YES" attributeType="String"/>
         <attribute name="title" optional="YES" attributeType="String"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="url" optional="YES" attributeType="String"/>
         <attribute name="userRating" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
         <relationship name="customNotes" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CustomNote" inverseName="job" inverseEntity="CustomNote"/>
     </entity>

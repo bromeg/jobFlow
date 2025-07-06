@@ -8,6 +8,18 @@ struct JobDetailView: View {
     @State private var editableDateApplied: Date
     @State private var customNotes: [CustomNote] = []
     @State private var isLoaded = false
+    @State private var locationType: String = LocationType.remote.rawValue
+    @State private var appliedVia: String = AppliedVia.other.rawValue
+    @State private var isEditing = false
+    @State private var editableTitle: String
+    @State private var editableCompany: String
+    @State private var editableJobDescription: String
+    @State private var editableJobURL: String
+    @State private var editableSalaryRange: String
+    @State private var editableFitScore: Int
+    @State private var editableNotes: String
+    @State private var editableRecruiterName: String
+    @State private var editableRecruiterEmail: String
 
     init(job: JobApplication) {
         self.job = job
@@ -15,6 +27,15 @@ struct JobDetailView: View {
         _editableStatus = State(initialValue: JobStatus(rawValue: job.status ?? "") ?? .applied)
         // Default to current date if dateApplied is nil
         _editableDateApplied = State(initialValue: job.dateApplied ?? Date())
+        _editableTitle = State(initialValue: job.title ?? "")
+        _editableCompany = State(initialValue: job.company ?? "")
+        _editableJobDescription = State(initialValue: job.jobDescription ?? "")
+        _editableJobURL = State(initialValue: job.url ?? "")
+        _editableSalaryRange = State(initialValue: job.salaryRange ?? "")
+        _editableFitScore = State(initialValue: Int(job.fitScore))
+        _editableNotes = State(initialValue: job.notes ?? "")
+        _editableRecruiterName = State(initialValue: job.recruiterName ?? "")
+        _editableRecruiterEmail = State(initialValue: job.recruiterEmail ?? "")
     }
 
     var body: some View {
@@ -22,34 +43,65 @@ struct JobDetailView: View {
             CustomBackButton()
                 .padding(.leading)
                 .padding(.top, 8)
+            HStack {
+                Spacer()
+                Button(isEditing ? "Save" : "Edit") {
+                    if isEditing {
+                        // Save changes to Core Data
+                        job.title = editableTitle
+                        job.company = editableCompany
+                        job.jobDescription = editableJobDescription
+                        job.url = editableJobURL
+                        job.salaryRange = editableSalaryRange
+                        job.fitScore = Int16(editableFitScore)
+                        job.notes = editableNotes
+                        job.recruiterName = editableRecruiterName
+                        job.recruiterEmail = editableRecruiterEmail
+                        job.status = editableStatus.rawValue
+                        job.dateApplied = editableDateApplied
+                        job.locationType = locationType
+                        job.appliedVia = appliedVia
+                        try? viewContext.save()
+                    }
+                    isEditing.toggle()
+                }
+                .buttonStyle(.borderedProminent)
+            }
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Group {
-                        Text(job.title ?? "Untitled")
-                            .font(.largeTitle)
-                            .bold()
-
-                        Text(job.company ?? "Unknown Company")
-                            .font(.title2)
-                            .foregroundColor(.secondary)
-
-                        HStack {
-                            Text("Status:")
+                        // Title
+                        if isEditing {
+                            Text("Title").bold()
+                            TextField("Title", text: $editableTitle)
+                                .textFieldStyle(.roundedBorder)
+                        } else {
+                            Text(job.title ?? "Untitled")
+                                .font(.largeTitle)
                                 .bold()
+                        }
+
+                        // Company
+                        if isEditing {
+                            Text("Company").bold()
+                            TextField("Company", text: $editableCompany)
+                                .textFieldStyle(.roundedBorder)
+                        } else {
+                            Text(job.company ?? "Unknown Company")
+                                .font(.title2)
+                                .foregroundColor(.secondary)
+                        }
+
+                        // Status
+                        if isEditing {
+                            Text("Status").bold()
                             Picker("Status", selection: $editableStatus) {
                                 ForEach(JobStatus.allCases) { status in
                                     Text(status.rawValue).tag(status)
                                 }
                             }
                             .pickerStyle(.menu)
-                            .onChange(of: editableStatus) { newStatus in
-                                job.status = newStatus.rawValue
-                                do {
-                                    try viewContext.save()
-                                } catch {
-                                    print("Failed to update status: \(error.localizedDescription)")
-                                }
-                            }
+                        } else {
                             Text(job.status ?? "N/A")
                                 .padding(6)
                                 .background(statusColor(for: job.status))
@@ -57,42 +109,131 @@ struct JobDetailView: View {
                                 .clipShape(Capsule())
                         }
 
-                        
-                        ProgressView("Fit Score: \(job.fitScore)%", value: Double(job.fitScore), total: 100)
-                            .progressViewStyle(.linear)
-                            .tint(.blue)
-                        
-
-                        if let salary = job.salaryRange {
-                            Text("Salary: \(salary)")
+                        // Fit Score
+                        if isEditing {
+                            Text("Fit Score").bold()
+                            HStack {
+                                Slider(value: Binding(
+                                    get: { Double(editableFitScore) },
+                                    set: { editableFitScore = Int($0) }),
+                                       in: 0...100, step: 5)
+                                Text("\(editableFitScore)%")
+                            }
+                        } else {
+                            Text("Fit Score: \(job.fitScore)%").bold()
+                            ProgressView("Fit Score: \(job.fitScore)%", value: Double(job.fitScore), total: 100)
+                                .progressViewStyle(.linear)
+                                .tint(.blue)
                         }
 
-                        HStack {
-                            Text("Application Date:")
-                                .bold()
+                        // Application Date
+                        if isEditing {
+                            Text("Application Date").bold()
                             DatePicker("Application Date", selection: $editableDateApplied, displayedComponents: .date)
                                 .datePickerStyle(.compact)
-                                .onChange(of: editableDateApplied) { newDate in
-                                    job.dateApplied = newDate
-                                    do {
-                                        try viewContext.save()
-                                    } catch {
-                                        print("Failed to update date: \(error.localizedDescription)")
-                                    }
+                        } else {
+                            HStack {
+                                Text("Application Date:").bold()
+                                Text(formattedDate(job.dateApplied ?? Date()))
+                            }
+                        }
+
+                        // Salary Range
+                        if isEditing {
+                            Text("Salary Range").bold()
+                            TextField("Salary Range", text: $editableSalaryRange)
+                                .textFieldStyle(.roundedBorder)
+                        } else if let salary = job.salaryRange {
+                            Text("Salary: \(salary)").bold()
+                        }
+
+                        // Location Type
+                        if isEditing {
+                            Text("Location Type").bold()
+                            Picker("", selection: $locationType) {
+                                ForEach(LocationType.allCases) { type in
+                                    Text(type.rawValue).tag(type)
                                 }
+                            }
+                            .pickerStyle(.segmented)
+                        } else if let locationType = job.locationType {
+                            Text("Location Type: \(locationType)").bold()
+                        }
+
+                        // Applied Via
+                        if isEditing {
+                            Text("Applied Via").bold()
+                            Picker("", selection: $appliedVia) {
+                                ForEach(AppliedVia.allCases) { via in
+                                    Text(via.rawValue).tag(via)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                        } else if let appliedVia = job.appliedVia {
+                            Text("Applied Via: \(appliedVia)").bold()
+                        }
+
+                        // Recruiter Name
+                        if isEditing {
+                            Text("Recruiter Name").bold()
+                            TextField("Recruiter Name", text: $editableRecruiterName)
+                                .textFieldStyle(.roundedBorder)
+                        } else if let recruiterName = job.recruiterName {
+                            Text("Recruiter: \(recruiterName)").bold()
+                        }
+
+                        // Recruiter Email
+                        if isEditing {
+                            Text("Recruiter Email").bold()
+                            TextField("Recruiter Email", text: $editableRecruiterEmail)
+                                .textFieldStyle(.roundedBorder)
+                        } else if let recruiterEmail = job.recruiterEmail {
+                            Text("Recruiter Email: \(recruiterEmail)").bold()
+                        }
+
+                        // Job Description
+                        if isEditing {
+                            Text("Job Description").bold()
+                            TextEditor(text: $editableJobDescription)
+                                .frame(height: 100)
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.3)))
+                        } else if let jobDescription = job.jobDescription, !jobDescription.isEmpty {
+                            Text("Job Description").font(.headline)
+                            Text(jobDescription)
+                                .padding()
+                                .background(Color.gray.opacity(0.08))
+                                .cornerRadius(8)
+                        }
+
+                        // Job URL
+                        if isEditing {
+                            Text("Job URL").bold()
+                            TextField("Job URL", text: $editableJobURL)
+                                .textFieldStyle(.roundedBorder)
+                        } else if let urlString = job.url, let url = URL(string: urlString), !urlString.isEmpty {
+                            Text("Job URL").font(.headline)
+                            Link(urlString, destination: url)
+                                .foregroundColor(.blue)
+                                .underline()
+                                .padding(.bottom, 8)
+                        }
+
+                        // Notes
+                        if isEditing {
+                            Text("Notes").bold()
+                            TextEditor(text: $editableNotes)
+                                .frame(height: 100)
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.3)))
+                        } else if let notes = job.notes, !notes.isEmpty {
+                            Text("Notes").font(.headline)
+                            Text(notes)
+                                .padding()
+                                .background(Color.gray.opacity(0.1))
+                                .cornerRadius(8)
                         }
                     }
 
                     Divider()
-
-                    if let notes = job.notes, !notes.isEmpty {
-                        Text("Notes")
-                            .font(.headline)
-                        Text(notes)
-                            .padding()
-                            .background(Color.gray.opacity(0.1))
-                            .cornerRadius(8)
-                    }
 
                     // Custom Notes Section
                     Text("Custom Notes")
