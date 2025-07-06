@@ -13,6 +13,7 @@
         <attribute name="company" optional="YES" attributeType="String"/>
         <attribute name="dateApplied" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="fitScore" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="hasReachedInterview" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="location" optional="YES" attributeType="String"/>
         <attribute name="notes" optional="YES" attributeType="String"/>
@@ -20,6 +21,6 @@
         <attribute name="status" optional="YES" attributeType="String"/>
         <attribute name="title" optional="YES" attributeType="String"/>
         <attribute name="userRating" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
-        <relationship name="customNotes" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="CustomNote" inverseName="job" inverseEntity="CustomNote"/>
+        <relationship name="customNotes" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CustomNote" inverseName="job" inverseEntity="CustomNote"/>
     </entity>
 </model>

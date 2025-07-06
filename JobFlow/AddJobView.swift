@@ -17,16 +17,22 @@ struct AddJobView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    basicInfoSection
-                    statusSection
-                    notesSection
-                    Spacer()
+            VStack(alignment: .leading, spacing: 0) {
+                CustomBackButton()
+                    .padding(.leading)
+                    .padding(.top, 8)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        basicInfoSection
+                        statusSection
+                        notesSection
+                        Spacer()
+                    }
+                    .padding()
                 }
-                .padding()
             }
             .navigationTitle("Add New Job")
+            .navigationBarBackButtonHidden(true)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {

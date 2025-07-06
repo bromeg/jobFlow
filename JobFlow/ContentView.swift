@@ -15,6 +15,11 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 0) {
+                if selectedTab != "Dashboard" && selectedTab != "Applications" {
+                    CustomBackButton()
+                        .padding(.leading)
+                        .padding(.top, 8)
+                }
                 // Header
                 VStack(alignment: .leading, spacing: 4) {
                     Text("JobFlow")
@@ -145,17 +150,12 @@ struct ContentView: View {
 }
 
 private func statusColor(for status: String?) -> Color {
-    switch status {
-    case "Applied":
-        return .blue
-    case "Interview":
-        return .orange
-    case "Offer":
-        return .green
-    case "Rejected":
-        return .red
-    default:
-        return .gray
+    switch JobStatus(rawValue: status ?? "") ?? .applied {
+    case .applied: return .blue
+    case .interview: return .orange
+    case .offer: return .green
+    case .rejected: return .red
+    default: return .gray
     }
 }
 
@@ -261,11 +261,11 @@ struct JobCardView: View {
 struct StatusBadge: View {
     let status: String
     var color: Color {
-        switch status.lowercased() {
-        case "applied": return .blue
-        case "interview": return .yellow
-        case "offer": return .green
-        case "rejected": return .red
+        switch JobStatus(rawValue: status ?? "") ?? .applied {
+        case .applied: return .blue
+        case .interview: return .yellow
+        case .offer: return .green
+        case .rejected: return .red
         default: return .gray
         }
     }

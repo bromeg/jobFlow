@@ -4,14 +4,28 @@ import CoreData
 struct DashboardView: View {
     let applications: FetchedResults<JobApplication>
     
+    var responseRate: Int {
+        let total = applications.count
+        guard total > 0 else { return 0 }
+        let responded = applications.filter { job in
+            guard let status = job.status?.lowercased() else { return false }
+            return status != "applied" && status != "rejected"
+        }.count
+        return Int((Double(responded) / Double(total)) * 100)
+    }
+    
+    var activeInterviews: Int {
+        applications.filter { $0.hasReachedInterview }.count
+    }
+    
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 // Stats Cards Row
                 HStack(spacing: 16) {
-                    StatCard(title: "Total Applications", value: "24", icon: "tray.full")
-                    StatCard(title: "Active Interviews", value: "3", icon: "person.2.fill")
-                    StatCard(title: "Response Rate", value: "58%", icon: "envelope.open")
+                    StatCard(title: "Total Applications", value: "\(applications.count)", icon: "tray.full")
+                    StatCard(title: "Active Interviews", value: "\(activeInterviews)", icon: "person.2.fill")
+                    StatCard(title: "Response Rate", value: "\(responseRate)%", icon: "envelope.open")
                     StatCard(title: "Avg Fit Score", value: "72", icon: "chart.bar.fill")
                 }
 
