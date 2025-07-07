@@ -73,6 +73,8 @@ struct ContentView: View {
                         AddJobView()
                             .environment(\.managedObjectContext, viewContext)
                     }
+                } else if selectedTab == "Resume Tools" {
+                    ResumeToolsView()
                 } else {
                     // Placeholder for other tabs
                     VStack(spacing: 16) {

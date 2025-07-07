@@ -18,6 +18,13 @@ struct DashboardView: View {
         applications.filter { $0.hasReachedInterview }.count
     }
     
+    var averageFitScore: Int {
+        let total = applications.count
+        guard total > 0 else { return 0 }
+        let sum = applications.reduce(0) { $0 + Int($1.fitScore) }
+        return sum / total
+    }
+    
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -26,7 +33,7 @@ struct DashboardView: View {
                     StatCard(title: "Total Applications", value: "\(applications.count)", icon: "tray.full")
                     StatCard(title: "Active Interviews", value: "\(activeInterviews)", icon: "person.2.fill")
                     StatCard(title: "Response Rate", value: "\(responseRate)%", icon: "envelope.open")
-                    StatCard(title: "Avg Fit Score", value: "72", icon: "chart.bar.fill")
+                    StatCard(title: "Avg Fit Score", value: "\(averageFitScore)%", icon: "chart.bar.fill")
                 }
 
                 // Recent Applications Section
