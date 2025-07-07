@@ -66,9 +66,9 @@ Managing job applications across multiple platforms and tailoring resumes for ea
 #### 8. Match Score Generation 
 - FR8.1: Display a match score as a percentage (0–100%)
 - FR8.2: Break down by:
--   Technical Skills Match
--   Experience Level
--   Keywords Match 
+  -   Technical Skills Match
+  -   Experience Level
+  -   Keywords Match 
 
 #### 9. Match Score Explanation 
 - FR9.1: Display a brief summary explaining how the score was calculated 
@@ -76,7 +76,7 @@ Managing job applications across multiple platforms and tailoring resumes for ea
 
 #### 10. Suggestions for Improvement 
 - FR10.1: Provide a list of 3–5 actionable suggestions to improve the score
--   Example: “Add ‘Agile methodology’ to experience section” 
+  - Example: “Add ‘Agile methodology’ to experience section” 
 
 #### 11. Change Summary 
 - FR11.1: After resume generation, show a comparison summary
