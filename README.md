@@ -1,5 +1,8 @@
 # Personal Job Application Tracker
 
+## Methodology
+This app is being built using a combination of AI development tools. In particular: ChatGPT, Cursor IDE, and v0. Code is primarily AI-generated with some AI guidance. I have never developed in Swift before, so I am learning some things along the way and making my own manual edits as well. This app is meant to be used for personal purposes, both for job application tracking and AI tool exploration. 
+
 ## Purpose
 JobFlow is a job application tracking and personal career management tool. It is designed to intelligently manage and optimize the job search experience by connecting with the user’s email, providing tailored resume recommendations, and integrating budgeting tools to support life planning around career transitions.
 
