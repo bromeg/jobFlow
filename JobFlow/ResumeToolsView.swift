@@ -11,6 +11,7 @@ struct ResumeToolsView: View {
     @State private var resumeGenerated = false
     @State private var matchScore: Int = 0
     @State private var suggestions: [String] = []
+    @State private var justification: String = ""
 
     var body: some View {
         ScrollView {
@@ -33,6 +34,7 @@ struct ResumeToolsView: View {
                     isProcessing: $isProcessing,
                     resumeGenerated: $resumeGenerated,
                     matchScore: $matchScore,
+                    justification: $justification,
                     suggestions: $suggestions,
                     onGenerate: generateOptimizedResume
                 )
@@ -50,9 +52,10 @@ struct ResumeToolsView: View {
         guard !resumeContent.isEmpty else { return }
         
         isProcessing = true
-        analyzeResume(resumeText: resumeContent) { score, suggestions in
+        analyzeResume(resumeText: resumeContent, jobDescription: jobDescription) { score, justification, suggestions in
             DispatchQueue.main.async {
                 self.matchScore = score
+                self.justification = justification
                 self.suggestions = suggestions
                 self.resumeGenerated = true
                 self.isProcessing = false
@@ -177,6 +180,7 @@ struct GenerateOptimizeCard: View {
     @Binding var isProcessing: Bool
     @Binding var resumeGenerated: Bool
     @Binding var matchScore: Int
+    @Binding var justification: String
     @Binding var suggestions: [String]
     let onGenerate: () -> Void
     
@@ -216,7 +220,13 @@ struct GenerateOptimizeCard: View {
                             .foregroundColor(scoreColor(matchScore))
                     }
                     
-                    // Suggestions
+                    if !justification.isEmpty {
+                        Text(justification)
+                            .font(.subheadline)
+                            .foregroundColor(.primary)
+                            .padding(.bottom, 8)
+                    }
+                    
                     if !suggestions.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Suggestions for Improvement")
@@ -257,17 +267,21 @@ struct GenerateOptimizeCard: View {
 }
 
 // Backend API call function
-func analyzeResume(resumeText: String, completion: @escaping (Int, [String]) -> Void) {
-    guard let url = URL(string: "http://127.0.0.1:8000/analyze_resume") else { 
+func analyzeResume(resumeText: String, jobDescription: String, completion: @escaping (Int, String, [String]) -> Void) {
+    guard let url = URL(string: "http://127.0.0.1:8000/analyze_resume") else {
         print("Invalid URL")
-        return 
+        return
     }
     
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     
-    let body = ["resume": resumeText]
+    // Send both resume and job description to backend
+    let body = [
+        "resume": resumeText,
+        "job_description": jobDescription
+    ]
     request.httpBody = try? JSONSerialization.data(withJSONObject: body)
     
     print("Sending request to backend...")
@@ -289,14 +303,17 @@ func analyzeResume(resumeText: String, completion: @escaping (Int, [String]) -> 
         
         print("Received data: \(String(data: data, encoding: .utf8) ?? "nil")")
         
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let matchScore = json["match_score"] as? Int,
-              let suggestions = json["suggestions"] as? [String] else {
-            print("Failed to parse response")
-            return
+        do {
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let matchScore = json["match_score"] as? Int,
+               let justification = json["justification"] as? String,
+               let suggestions = json["suggestions"] as? [String] {
+                completion(matchScore, justification, suggestions)
+            } else {
+                print("Failed to parse response: \(String(data: data, encoding: .utf8) ?? "nil")")
+            }
+        } catch {
+            print("JSON decode error: \(error)")
         }
-        
-        print("Successfully parsed: score=\(matchScore), suggestions=\(suggestions)")
-        completion(matchScore, suggestions)
     }.resume()
 } 
