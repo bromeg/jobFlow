@@ -27,15 +27,17 @@ Use only the information provided in the resume. Do not fabricate or invent new 
 3. **Qualifications Match:** Does the resume reflect the required experience level, certifications, or domain knowledge asked for in the job description?
 4. **ATS Compatibility:** Does the resume follow formatting and phrasing practices that make it readable by ATS software (e.g., standard section headings, no graphics, consistent title formatting)?
 
+Before returning a response, critique your findings and make sure you are not missing any important information or potential recommendations.
 ---
 
 ### Output Format:
 Respond with:
 - A **Match Score** (0–100%)
 - A **Concise Justification** (2–3 sentences)
-- **3–5 Full-Sentence Suggestions for Improvement** (in professional tone, focused on keyword alignment, content reframing, or formatting improvements)
+- A brief (2 sentence) summary of whether or not the resume is a good fit for the job description
+- **3–10 Full-Sentence Suggestions for Improvement** (in professional tone, focused on keyword alignment, content reframing, or formatting improvements)
 
-Each suggestion should include specific examples based on the resume. Focus on areas where wording could be improved to better reflect the language of the job description. If the resume is strong, still provide subtle suggestions for refinement.
+Provide specific feedback on changes that should be made to the resume to improve the match score. Focus on areas where wording could be improved to better reflect the language of the job description. If the resume is strong, still provide subtle suggestions for refinement.
 
 ---
 
