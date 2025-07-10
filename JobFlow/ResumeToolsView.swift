@@ -2,34 +2,34 @@ import SwiftUI
 import UniformTypeIdentifiers
 import Foundation
 
+// Main view for the Resume Tools page
 struct ResumeToolsView: View {
-    @State private var resumeContent: String = ""
-    @State private var jobDescription: String = ""
-    @State private var jobLink: String = ""
-    @State private var isProcessing = false
-    @State private var showingFilePicker = false
-    @State private var resumeGenerated = false
-    @State private var matchScore: Int = 0
-    @State private var suggestions: [String] = []
-    @State private var justification: String = ""
+    // --- State Variables ---
+    @State private var resumeContent: String = "" // Stores the user's resume text
+    @State private var jobDescription: String = "" // Stores the job description text
+    @State private var jobLink: String = "" // Stores the job link (not used yet)
+    @State private var isProcessing = false // Indicates if analysis is in progress
+    @State private var showingFilePicker = false // Controls file picker visibility
+    @State private var resumeGenerated = false // Indicates if analysis is complete
+    @State private var matchScore: Int = 0 // Stores the AI match score
+    @State private var suggestions: [String] = [] // Stores AI suggestions
+    @State private var justification: String = "" // Stores AI justification/explanation
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                // 1. Upload Resume
+                // --- 1. Upload Resume Card ---
                 ResumeCard(
                     resumeContent: $resumeContent,
                     showingFilePicker: $showingFilePicker,
                     onFileSelected: loadResumeFromFile
                 )
-                
-                // 2. Job Description & Link
+                // --- 2. Job Description & Link Card ---
                 JobDescriptionAndLinkCard(
                     jobDescription: $jobDescription,
                     jobLink: $jobLink
                 )
-                
-                // 3. Generate & Optimize
+                // --- 3. Generate & Optimize Card ---
                 GenerateOptimizeCard(
                     isProcessing: $isProcessing,
                     resumeGenerated: $resumeGenerated,
@@ -44,13 +44,14 @@ struct ResumeToolsView: View {
         }
     }
 
+    // Handles loading resume content from a selected file (mocked for now)
     private func loadResumeFromFile(_ url: URL) {
         resumeContent = "Mock resume content loaded from \(url.lastPathComponent)"
     }
 
+    // Triggers the backend analysis and updates state with results
     private func generateOptimizedResume() {
         guard !resumeContent.isEmpty else { return }
-        
         isProcessing = true
         analyzeResume(resumeText: resumeContent, jobDescription: jobDescription) { score, justification, suggestions in
             DispatchQueue.main.async {
@@ -64,7 +65,7 @@ struct ResumeToolsView: View {
     }
 }
 
-// Card 1: Resume Upload
+// --- Card 1: Resume Upload ---
 struct ResumeCard: View {
     @Binding var resumeContent: String
     @Binding var showingFilePicker: Bool
@@ -74,11 +75,10 @@ struct ResumeCard: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Upload Resume")
                 .font(.title2).bold()
-            
             Text("Upload or paste your resume to get started.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
-            
+            // File upload button
             Button(action: { showingFilePicker = true }) {
                 HStack {
                     Image(systemName: "doc.badge.plus")
@@ -116,7 +116,7 @@ struct ResumeCard: View {
                     print("Error selecting file: \(error.localizedDescription)")
                 }
             }
-            
+            // Text area for pasting resume content
             VStack(alignment: .leading, spacing: 8) {
                 Text("Or paste your resume content")
                     .font(.headline)
@@ -136,7 +136,7 @@ struct ResumeCard: View {
     }
 }
 
-// Card 2: Job Description & Link
+// --- Card 2: Job Description & Link ---
 struct JobDescriptionAndLinkCard: View {
     @Binding var jobDescription: String
     @Binding var jobLink: String
@@ -145,11 +145,10 @@ struct JobDescriptionAndLinkCard: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Job Description & Link")
                 .font(.title2).bold()
-            
             Text("Paste the job description and/or a link to the job post.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
-            
+            // Text area for job description
             TextEditor(text: $jobDescription)
                 .frame(minHeight: 80)
                 .padding(12)
@@ -158,7 +157,7 @@ struct JobDescriptionAndLinkCard: View {
                     RoundedRectangle(cornerRadius: 8)
                         .stroke(Color.gray.opacity(0.2), lineWidth: 1)
                 )
-            
+            // Job link field (fetch not implemented yet)
             HStack {
                 TextField("https://example.com/job-posting", text: $jobLink)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
@@ -175,7 +174,7 @@ struct JobDescriptionAndLinkCard: View {
     }
 }
 
-// Card 3: Generate & Optimize
+// --- Card 3: Generate & Optimize ---
 struct GenerateOptimizeCard: View {
     @Binding var isProcessing: Bool
     @Binding var resumeGenerated: Bool
@@ -188,7 +187,7 @@ struct GenerateOptimizeCard: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Generate & Optimize")
                 .font(.title2).bold()
-            
+            // Button to trigger backend analysis
             Button(action: onGenerate) {
                 Text(resumeGenerated ? "Regenerate & Analyze Resume" : "Generate & Analyze Resume")
                     .font(.headline)
@@ -197,7 +196,7 @@ struct GenerateOptimizeCard: View {
             .buttonStyle(.borderedProminent)
             .padding(.vertical, 4)
             .disabled(isProcessing)
-            
+            // Show progress indicator while processing
             if isProcessing {
                 HStack {
                     ProgressView()
@@ -207,9 +206,8 @@ struct GenerateOptimizeCard: View {
                         .foregroundColor(.secondary)
                 }
             }
-            
+            // Show results after analysis
             if resumeGenerated {
-                // Match Score
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Text("Match Score")
@@ -219,19 +217,18 @@ struct GenerateOptimizeCard: View {
                             .font(.title).bold()
                             .foregroundColor(scoreColor(matchScore))
                     }
-                    
+                    // Show AI justification/explanation
                     if !justification.isEmpty {
                         Text(justification)
                             .font(.subheadline)
                             .foregroundColor(.primary)
                             .padding(.bottom, 8)
                     }
-                    
+                    // Show AI suggestions as a numbered list
                     if !suggestions.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Suggestions for Improvement")
                                 .font(.headline)
-                            
                             ForEach(Array(suggestions.enumerated()), id: \.offset) { index, suggestion in
                                 HStack(alignment: .top) {
                                     Text("\(index + 1).")
@@ -256,7 +253,7 @@ struct GenerateOptimizeCard: View {
         .background(RoundedRectangle(cornerRadius: 14).fill(Color.white))
         .shadow(color: Color.black.opacity(0.03), radius: 2, x: 0, y: 1)
     }
-    
+    // Helper to color the score based on value
     private func scoreColor(_ score: Int) -> Color {
         switch score {
         case 80...100: return .green
@@ -266,7 +263,8 @@ struct GenerateOptimizeCard: View {
     }
 }
 
-// Backend API call function
+// --- Backend API Call Function ---
+// Calls the Python backend to analyze the resume and job description
 func analyzeResume(resumeText: String, jobDescription: String, completion: @escaping (Int, String, [String]) -> Void) {
     guard let url = URL(string: "http://127.0.0.1:8000/analyze_resume") else {
         print("Invalid URL")
