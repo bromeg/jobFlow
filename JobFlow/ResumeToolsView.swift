@@ -44,15 +44,33 @@ struct ResumeToolsView: View {
         }
     }
 
-    // Handles loading resume content from a selected file (mocked for now)
+    // Handles loading resume content from a selected file (now uploads to backend for extraction)
     private func loadResumeFromFile(_ url: URL) {
-        resumeContent = "Mock resume content loaded from \(url.lastPathComponent)"
+        // Determine file type
+        let ext = url.pathExtension.lowercased()
+        if ext == "pdf" || ext == "docx" {
+            // Upload file to backend for analysis
+            self.isProcessing = true
+            analyzeResumeFile(fileURL: url, jobDescription: jobDescription) { score, justification, suggestions in
+                DispatchQueue.main.async {
+                    self.matchScore = score
+                    self.justification = justification
+                    self.suggestions = suggestions
+                    self.resumeGenerated = true
+                    self.isProcessing = false
+                }
+            }
+        } else {
+            // Fallback: just show mock content
+            resumeContent = "Mock resume content loaded from \(url.lastPathComponent)"
+        }
     }
 
     // Triggers the backend analysis and updates state with results
     private func generateOptimizedResume() {
         guard !resumeContent.isEmpty else { return }
         isProcessing = true
+        // If resumeContent is not a file upload, use the plain text endpoint
         analyzeResume(resumeText: resumeContent, jobDescription: jobDescription) { score, justification, suggestions in
             DispatchQueue.main.async {
                 self.matchScore = score
@@ -104,7 +122,7 @@ struct ResumeCard: View {
             .buttonStyle(PlainButtonStyle())
             .fileImporter(
                 isPresented: $showingFilePicker,
-                allowedContentTypes: [UTType.pdf, UTType.plainText],
+                allowedContentTypes: [UTType.pdf, UTType.plainText] + (UTType(filenameExtension: "docx") != nil ? [UTType(filenameExtension: "docx")!] : []),
                 allowsMultipleSelection: false
             ) { result in
                 switch result {
@@ -270,7 +288,6 @@ func analyzeResume(resumeText: String, jobDescription: String, completion: @esca
         print("Invalid URL")
         return
     }
-    
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -283,7 +300,63 @@ func analyzeResume(resumeText: String, jobDescription: String, completion: @esca
     request.httpBody = try? JSONSerialization.data(withJSONObject: body)
     
     print("Sending request to backend...")
-    
+    URLSession.shared.dataTask(with: request) { data, response, error in
+        if let error = error {
+            print("Network error: \(error)")
+            return
+        }
+        if let httpResponse = response as? HTTPURLResponse {
+            print("HTTP Status: \(httpResponse.statusCode)")
+        }
+        guard let data = data else {
+            print("No data received")
+            return
+        }
+        print("Received data: \(String(data: data, encoding: .utf8) ?? "nil")")
+        do {
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let matchScore = json["match_score"] as? Int,
+               let justification = json["justification"] as? String,
+               let suggestions = json["suggestions"] as? [String] {
+                completion(matchScore, justification, suggestions)
+            } else {
+                print("Failed to parse response: \(String(data: data, encoding: .utf8) ?? "nil")")
+            }
+        } catch {
+            print("JSON decode error: \(error)")
+        }
+    }.resume()
+}
+
+// Calls the backend to analyze a resume file (PDF/DOCX) and job description
+func analyzeResumeFile(fileURL: URL, jobDescription: String, completion: @escaping (Int, String, [String]) -> Void) {
+    guard let url = URL(string: "http://127.0.0.1:8000/analyze_resume_file") else {
+        print("Invalid URL")
+        return
+    }
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    let boundary = UUID().uuidString
+    request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+    var data = Data()
+    // Add file data
+    if let fileData = try? Data(contentsOf: fileURL) {
+        let filename = fileURL.lastPathComponent
+        let mimetype = fileURL.pathExtension.lowercased() == "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        data.append("--\(boundary)\r\n".data(using: .utf8)!)
+        data.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n".data(using: .utf8)!)
+        data.append("Content-Type: \(mimetype)\r\n\r\n".data(using: .utf8)!)
+        data.append(fileData)
+        data.append("\r\n".data(using: .utf8)!)
+    }
+    // Add job description
+    data.append("--\(boundary)\r\n".data(using: .utf8)!)
+    data.append("Content-Disposition: form-data; name=\"job_description\"\r\n\r\n".data(using: .utf8)!)
+    data.append(jobDescription.data(using: .utf8)!)
+    data.append("\r\n".data(using: .utf8)!)
+    data.append("--\(boundary)--\r\n".data(using: .utf8)!)
+    request.httpBody = data
+    print("Uploading file to backend for analysis...")
     URLSession.shared.dataTask(with: request) { data, response, error in
         if let error = error {
             print("Network error: \(error)")

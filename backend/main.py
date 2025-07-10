@@ -1,9 +1,12 @@
 import os
 import openai
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 import time
 import re
+import PyPDF2
+from typing import Optional
+import docx
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -108,6 +111,63 @@ async def analyze_resume(req: ResumeRequest):
         "suggestions": suggestions
     }
 
+# --- New Endpoint: Analyze Resume File Upload ---
+@app.post("/analyze_resume_file")
+async def analyze_resume_file(
+    file: UploadFile = File(...),
+    job_description: str = Form(...)
+):
+    # --- Rate Limiting Logic ---
+    now = time.time()
+    global request_times
+    request_times = [t for t in request_times if now - t < WINDOW_SECONDS]
+    if len(request_times) >= REQUEST_LIMIT:
+        raise HTTPException(status_code=429, detail="API rate limit exceeded. Please try again later.")
+    request_times.append(now)
+
+    # --- Extract resume text from file ---
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file uploaded.")
+    filename = str(file.filename)
+    _, ext = os.path.splitext(filename)
+    ext = ext.lower()
+    resume_text = ""
+    if ext == ".pdf":
+        temp_path = f"/tmp/{filename}"
+        with open(temp_path, "wb") as f:
+            f.write(await file.read())
+        resume_text = extract_pdf_text(temp_path)
+        os.remove(temp_path)
+    elif ext == ".docx":
+        temp_path = f"/tmp/{filename}"
+        with open(temp_path, "wb") as f:
+            f.write(await file.read())
+        resume_text = extract_docx_text(temp_path)
+        os.remove(temp_path)
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported file type. Please upload a PDF or DOCX file.")
+
+    # --- Construct the AI Prompt ---
+    prompt = PROMPT_TEMPLATE.format(
+        resume=resume_text,
+        job_description=job_description
+    )
+
+    # --- Call OpenAI ChatGPT API ---
+    response = openai.chat.completions.create(
+        model="gpt-4.1-mini",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=600,
+        temperature=0.7,
+    )
+    content = response.choices[0].message.content or ""
+    score, justification, suggestions = parse_openai_response(content)
+    return {
+        "match_score": score,
+        "justification": justification,
+        "suggestions": suggestions
+    }
+
 # --- Helper Function: Parse AI Output ---
 def parse_openai_response(content: str):
     # Extract Match Score (looks for e.g. "Match Score: 85%")
@@ -128,3 +188,30 @@ def parse_openai_response(content: str):
             suggestions = [line.strip() for line in sugg_section[1].split('\n') if line.strip()]
 
     return score, justification, suggestions[:5]  # Limit to 5 suggestions for UI clarity
+
+# --- Extract resume text from a file ---
+@app.post("/extract_resume_text")
+def extract_resume_text(file_path: str):
+    # Check if file exists
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    # Check file extension
+    _, file_extension = os.path.splitext(file_path)
+    if file_extension.lower() == ".pdf":
+        return extract_pdf_text(file_path)
+
+def extract_pdf_text(file_path: str):
+    # Use PyPDF2 to extract text from PDF
+    with open(file_path, 'rb') as file:
+        reader = PyPDF2.PdfReader(file)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text()
+        return text
+
+# --- DOCX Extraction Helper ---
+def extract_docx_text(file_path: str) -> str:
+    doc = docx.Document(file_path)
+    text = "\n".join([para.text for para in doc.paragraphs])
+    return text
