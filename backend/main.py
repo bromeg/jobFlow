@@ -168,6 +168,34 @@ async def analyze_resume_file(
         "suggestions": suggestions
     }
 
+# --- New Endpoint: Extract Resume Text from File (no OpenAI call) ---
+@app.post("/extract_resume_text_file")
+async def extract_resume_text_file(file: UploadFile = File(...)):
+    print("Extracting resume text from file")
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file uploaded.")
+    filename = str(file.filename)
+    print("Extracting resume text from file:", filename)
+    _, ext = os.path.splitext(filename)
+    ext = ext.lower()
+    print("File extension:", ext)
+    resume_text = ""
+    if ext == ".pdf":
+        temp_path = f"/tmp/{filename}"
+        with open(temp_path, "wb") as f:
+            f.write(await file.read())
+        resume_text = extract_pdf_text(temp_path)
+        os.remove(temp_path)
+    elif ext == ".docx":
+        temp_path = f"/tmp/{filename}"
+        with open(temp_path, "wb") as f:
+            f.write(await file.read())
+        resume_text = extract_docx_text(temp_path)
+        os.remove(temp_path)
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported file type. Please upload a PDF or DOCX file.")
+    return {"resume_text": resume_text}
+
 # --- Helper Function: Parse AI Output ---
 def parse_openai_response(content: str):
     # Extract Match Score (looks for e.g. "Match Score: 85%")
@@ -202,6 +230,7 @@ def extract_resume_text(file_path: str):
         return extract_pdf_text(file_path)
 
 def extract_pdf_text(file_path: str):
+    print("extracting pdf text")
     # Use PyPDF2 to extract text from PDF
     with open(file_path, 'rb') as file:
         reader = PyPDF2.PdfReader(file)
@@ -212,6 +241,7 @@ def extract_pdf_text(file_path: str):
 
 # --- DOCX Extraction Helper ---
 def extract_docx_text(file_path: str) -> str:
+    print("extracting docx text")
     doc = docx.Document(file_path)
     text = "\n".join([para.text for para in doc.paragraphs])
     return text

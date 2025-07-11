@@ -14,6 +14,10 @@ struct ResumeToolsView: View {
     @State private var matchScore: Int = 0 // Stores the AI match score
     @State private var suggestions: [String] = [] // Stores AI suggestions
     @State private var justification: String = "" // Stores AI justification/explanation
+    @State private var selectedResumeFile: URL? = nil // Stores the selected file URL
+    @State private var resumeUploadStatus: String? = nil // Stores upload status message
+    @State private var extractedResumeText: String? = nil // Stores extracted text from file
+    @State private var isExtractingResume = false
 
     var body: some View {
         ScrollView {
@@ -21,8 +25,11 @@ struct ResumeToolsView: View {
                 // --- 1. Upload Resume Card ---
                 ResumeCard(
                     resumeContent: $resumeContent,
+                    selectedResumeFile: $selectedResumeFile,
+                    resumeUploadStatus: $resumeUploadStatus,
                     showingFilePicker: $showingFilePicker,
-                    onFileSelected: loadResumeFromFile
+                    onFileSelected: handleResumeFileSelected,
+                    onRemoveFile: removeSelectedResumeFile
                 )
                 // --- 2. Job Description & Link Card ---
                 JobDescriptionAndLinkCard(
@@ -43,35 +50,60 @@ struct ResumeToolsView: View {
             .padding(.top, 16)
         }
     }
+    
 
-    // Handles loading resume content from a selected file (now uploads to backend for extraction)
-    private func loadResumeFromFile(_ url: URL) {
-        // Determine file type
+    // Handles when a resume file is selected
+    private func handleResumeFileSelected(_ url: URL) {
+        selectedResumeFile = url
+        resumeUploadStatus = "Uploading..."
+        extractedResumeText = nil
+        print("handleResumeFileSelected")
         let ext = url.pathExtension.lowercased()
+        print(ext)
         if ext == "pdf" || ext == "docx" {
-            // Upload file to backend for analysis
-            self.isProcessing = true
-            analyzeResumeFile(fileURL: url, jobDescription: jobDescription) { score, justification, suggestions in
+            isExtractingResume = true
+            // Start accessing security-scoped resource
+            let didStartAccessing = url.startAccessingSecurityScopedResource()
+            extractResumeTextFromFile(fileURL: url) { extractedText, error in
                 DispatchQueue.main.async {
-                    self.matchScore = score
-                    self.justification = justification
-                    self.suggestions = suggestions
-                    self.resumeGenerated = true
-                    self.isProcessing = false
+                    isExtractingResume = false
+                    if let extractedText = extractedText {
+                        self.extractedResumeText = extractedText
+                        print(extractedText)
+                        self.resumeUploadStatus = "Upload success!"
+                    } else {
+                        self.resumeUploadStatus = "Upload failed: \(error ?? "Unknown error")"
+                    }
+                    // Stop accessing after done
+                    if didStartAccessing {
+                        url.stopAccessingSecurityScopedResource()
+                    }
                 }
             }
         } else {
-            // Fallback: just show mock content
-            resumeContent = "Mock resume content loaded from \(url.lastPathComponent)"
+            resumeUploadStatus = "Upload failed: Unsupported file type."
         }
+    }
+
+    // Handles removing the selected resume file
+    private func removeSelectedResumeFile() {
+        selectedResumeFile = nil
+        resumeUploadStatus = nil
+        extractedResumeText = nil
     }
 
     // Triggers the backend analysis and updates state with results
     private func generateOptimizedResume() {
-        guard !resumeContent.isEmpty else { return }
+        print("generateOptimizedResume")
+        let resumeTextToAnalyze: String
+        if let fileText = extractedResumeText, selectedResumeFile != nil {
+            resumeTextToAnalyze = fileText
+        } else {
+            resumeTextToAnalyze = resumeContent
+        }
+        guard !resumeTextToAnalyze.isEmpty else { return }
         isProcessing = true
-        // If resumeContent is not a file upload, use the plain text endpoint
-        analyzeResume(resumeText: resumeContent, jobDescription: jobDescription) { score, justification, suggestions in
+        analyzeResume(resumeText: resumeTextToAnalyze, jobDescription: jobDescription) { score, justification, suggestions in
             DispatchQueue.main.async {
                 self.matchScore = score
                 self.justification = justification
@@ -86,8 +118,11 @@ struct ResumeToolsView: View {
 // --- Card 1: Resume Upload ---
 struct ResumeCard: View {
     @Binding var resumeContent: String
+    @Binding var selectedResumeFile: URL?
+    @Binding var resumeUploadStatus: String?
     @Binding var showingFilePicker: Bool
     let onFileSelected: (URL) -> Void
+    let onRemoveFile: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -134,18 +169,39 @@ struct ResumeCard: View {
                     print("Error selecting file: \(error.localizedDescription)")
                 }
             }
+            // Show selected file with icon, name, X to remove, and upload status
+            if let fileURL = selectedResumeFile {
+                HStack(spacing: 8) {
+                    Image(systemName: "doc.fill")
+                        .foregroundColor(.teal)
+                    Text(fileURL.lastPathComponent)
+                        .font(.body)
+                    if let status = resumeUploadStatus {
+                        Text(status)
+                            .font(.caption)
+                            .foregroundColor(status.contains("success") ? .green : (status.contains("Uploading") ? .orange : .red))
+                    }
+                    Button(action: onRemoveFile) {
+                        Image(systemName: "xmark")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+            }
             // Text area for pasting resume content
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Or paste your resume content")
-                    .font(.headline)
-                TextEditor(text: $resumeContent)
-                    .frame(minHeight: 120)
-                    .padding(12)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.05)))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                    )
+            if selectedResumeFile == nil {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Or paste your resume content")
+                        .font(.headline)
+                    TextEditor(text: $resumeContent)
+                        .frame(minHeight: 120)
+                        .padding(12)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.05)))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                        )
+                }
             }
         }
         .padding(16)
@@ -334,6 +390,7 @@ func analyzeResumeFile(fileURL: URL, jobDescription: String, completion: @escapi
         print("Invalid URL")
         return
     }
+    print("analyzeResumeFile")
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
     let boundary = UUID().uuidString
@@ -385,6 +442,59 @@ func analyzeResumeFile(fileURL: URL, jobDescription: String, completion: @escapi
             }
         } catch {
             print("JSON decode error: \(error)")
+        }
+    }.resume()
+}
+
+// Calls the backend to extract resume text from a file (PDF/DOCX)
+func extractResumeTextFromFile(fileURL: URL, completion: @escaping (String?, String?) -> Void) {
+    print("extractResumeTextFromFile")
+    guard let url = URL(string: "http://127.0.0.1:8000/extract_resume_text_file") else {
+        completion(nil, "Invalid backend URL")
+        return
+    }
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    let boundary = UUID().uuidString
+    request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+    var data = Data()
+    // Add file data
+    if let fileData = try? Data(contentsOf: fileURL) {
+        print("fileData")
+        let filename = fileURL.lastPathComponent
+        let mimetype = fileURL.pathExtension.lowercased() == "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        data.append("--\(boundary)\r\n".data(using: .utf8)!)
+        data.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n".data(using: .utf8)!)
+        data.append("Content-Type: \(mimetype)\r\n\r\n".data(using: .utf8)!)
+        data.append(fileData)
+        data.append("\r\n".data(using: .utf8)!)
+        data.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        print("Upload body size: \(data.count) bytes")
+        request.httpBody = data
+    } else {
+        completion(nil, "Could not read file data")
+        print("Could not read file data")
+        
+        return
+    }
+    URLSession.shared.dataTask(with: request) { data, response, error in
+        if let error = error {
+            completion(nil, error.localizedDescription)
+            return
+        }
+        guard let data = data else {
+            completion(nil, "No data received")
+            return
+        }
+        do {
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let resumeText = json["resume_text"] as? String {
+                completion(resumeText, nil)
+            } else {
+                completion(nil, "Failed to parse response")
+            }
+        } catch {
+            completion(nil, error.localizedDescription)
         }
     }.resume()
 } 
