@@ -66,7 +66,7 @@ Using the following job description and candidate resume, evaluate the alignment
 
 - Core Requirements Match (40%) — Does the resume meet all must-have qualifications?
 - Preferred/Bonus Criteria (20%) — Are additional skills/qualifications present?
-- Domain/Industry Alignment (20%) — Does the resume reflect experience in the company’s domain or customer base?
+- Domain/Industry Alignment (20%) — Does the resume reflect experience in the company's domain or customer base?
 - Soft Skills/Culture Fit (20%) — Does the resume signal alignment with the company's stated values, team structure, or ways of working?
 
 ### Output Format:
@@ -87,9 +87,54 @@ Respond with:
 {job_description}
 """
 
+# --- Company Research Prompt Template ---
+COMPANY_RESEARCH_PROMPT = """
+You are a business research analyst. Your task is to research the company mentioned in the job description and provide comprehensive information about the organization.
+
+IMPORTANT: Do not rely solely on the job description. Research the company from external sources including:
+- The company's official website
+- LinkedIn company page
+- Crunchbase or similar business databases
+- Recent news articles
+- Company social media presence
+
+Based on your research, provide a comprehensive company summary that includes:
+
+1. **Company Overview**: What does the company do? What is their main business model and value proposition? Include founding year, headquarters location, and company size if available.
+
+2. **Market & Customers**: Who are their target customers? What market or industry do they serve? Are they B2B, B2C, or both? Include specific customer segments and geographic markets.
+
+3. **Key Product Areas**: What are their main products or services? What technologies or solutions do they offer? Include specific product names and features.
+
+4. **Company Culture & Values**: What is their work culture like? What are their stated values and mission? Include information about their work environment, benefits, and company philosophy.
+
+5. **Industry & Competition**: What industry are they in? Who are their main competitors? Include market position and competitive advantages.
+
+6. **Growth & Opportunities**: What is their growth stage, funding status, and market position? Include recent funding rounds, acquisitions, or expansion plans.
+
+7. **Additional Insights**: Any other relevant information including recent news, awards, partnerships, or notable achievements.
+
+### Research Guidelines:
+- Visit the company's official website and extract key information
+- Look for "About Us", "Our Story", "Products/Services" sections
+- Check for recent press releases or news articles
+- Verify information from multiple sources when possible
+- Focus on factual, publicly available information
+
+### Output Format:
+Provide a structured response with clear sections for each of the above points. Be specific and factual based on your research. If certain information is not available from public sources, clearly state that.
+
+### Input:
+**Job Description:**
+{job_description}
+"""
+
 # --- Request Model ---
 class ResumeRequest(BaseModel):
     resume: str
+    job_description: str
+
+class CompanyResearchRequest(BaseModel):
     job_description: str
 
 # --- Main API Endpoint ---
@@ -305,6 +350,132 @@ def parse_openai_response(content: str):
     
     return score, justification, suggestions[:5]  # Limit to 5 suggestions for UI clarity
 
+# --- Helper Function: Parse Company Research Response ---
+def parse_company_research_response(content: str):
+    print("=== PARSING COMPANY RESEARCH RESPONSE ===")
+    print(f"Content length: {len(content)} characters")
+    
+    # Initialize structured response
+    company_info = {
+        "company_overview": "",
+        "market_customers": "",
+        "key_products": "",
+        "culture_values": "",
+        "industry_competition": "",
+        "growth_opportunities": "",
+        "additional_insights": ""
+    }
+    
+    # Try to extract sections using common patterns
+    sections = {
+        "company_overview": [
+            r"Company Overview[:\s]*([^\n]+(?:\n(?!\d+\.)[^\n]+)*)",
+            r"What does the company do[:\s]*([^\n]+(?:\n(?!\d+\.)[^\n]+)*)",
+            r"business model[:\s]*([^\n]+(?:\n(?!\d+\.)[^\n]+)*)"
+        ],
+        "market_customers": [
+            r"Market & Customers[:\s]*([^\n]+(?:\n(?!\d+\.)[^\n]+)*)",
+            r"target customers[:\s]*([^\n]+(?:\n(?!\d+\.)[^\n]+)*)",
+            r"market or industry[:\s]*([^\n]+(?:\n(?!\d+\.)[^\n]+)*)"
+        ],
+        "key_products": [
+            r"Key Product Areas[:\s]*([^\n]+(?:\n(?!\d+\.)[^\n]+)*)",
+            r"main products or services[:\s]*([^\n]+(?:\n(?!\d+\.)[^\n]+)*)",
+            r"technologies or solutions[:\s]*([^\n]+(?:\n(?!\d+\.)[^\n]+)*)"
+        ],
+        "culture_values": [
+            r"Company Culture & Values[:\s]*([^\n]+(?:\n(?!\d+\.)[^\n]+)*)",
+            r"work culture[:\s]*([^\n]+(?:\n(?!\d+\.)[^\n]+)*)",
+            r"values, or mission[:\s]*([^\n]+(?:\n(?!\d+\.)[^\n]+)*)"
+        ],
+        "industry_competition": [
+            r"Industry & Competition[:\s]*([^\n]+(?:\n(?!\d+\.)[^\n]+)*)",
+            r"industry are they in[:\s]*([^\n]+(?:\n(?!\d+\.)[^\n]+)*)",
+            r"competitors[:\s]*([^\n]+(?:\n(?!\d+\.)[^\n]+)*)"
+        ],
+        "growth_opportunities": [
+            r"Growth & Opportunities[:\s]*([^\n]+(?:\n(?!\d+\.)[^\n]+)*)",
+            r"growth stage[:\s]*([^\n]+(?:\n(?!\d+\.)[^\n]+)*)",
+            r"funding, or market position[:\s]*([^\n]+(?:\n(?!\d+\.)[^\n]+)*)"
+        ],
+        "additional_insights": [
+            r"Additional Insights[:\s]*([^\n]+(?:\n(?!\d+\.)[^\n]+)*)",
+            r"other relevant information[:\s]*([^\n]+(?:\n(?!\d+\.)[^\n]+)*)"
+        ]
+    }
+    
+    # Extract content for each section
+    for section_name, patterns in sections.items():
+        for pattern in patterns:
+            match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+            if match:
+                company_info[section_name] = match.group(1).strip()
+                print(f"Found {section_name} using pattern")
+                break
+    
+    # If structured parsing failed, try to extract meaningful content from the full response
+    if not any(company_info.values()):
+        print("Structured parsing failed, extracting general content...")
+        # Split content into paragraphs and assign to sections
+        paragraphs = [p.strip() for p in content.split('\n\n') if p.strip() and len(p.strip()) > 20]
+        
+        if len(paragraphs) >= 1:
+            company_info["company_overview"] = paragraphs[0]
+        if len(paragraphs) >= 2:
+            company_info["market_customers"] = paragraphs[1]
+        if len(paragraphs) >= 3:
+            company_info["key_products"] = paragraphs[2]
+        if len(paragraphs) >= 4:
+            company_info["culture_values"] = paragraphs[3]
+        if len(paragraphs) >= 5:
+            company_info["industry_competition"] = paragraphs[4]
+        if len(paragraphs) >= 6:
+            company_info["growth_opportunities"] = paragraphs[5]
+        if len(paragraphs) >= 7:
+            company_info["additional_insights"] = paragraphs[6]
+    
+    print(f"Final parsed company info: {len([v for v in company_info.values() if v])} sections filled")
+    print("=== END COMPANY RESEARCH PARSING ===")
+    
+    return company_info
+
+# --- Helper Function: Extract Company Name ---
+def extract_company_name(job_description: str) -> str:
+    """Extract company name from job description using AI"""
+    print("=== EXTRACTING COMPANY NAME ===")
+    
+    company_extraction_prompt = f"""
+Extract the company name from the following job description. 
+Look for patterns like:
+- "at [Company Name]"
+- "[Company Name] is hiring"
+- "Join [Company Name]"
+- "[Company Name] - [Job Title]"
+- Company names in the "About" section
+
+Return ONLY the company name, nothing else. If no clear company name is found, return "Unknown Company".
+
+Job Description:
+{job_description}
+"""
+    
+    try:
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": company_extraction_prompt}],
+            max_tokens=50,
+            temperature=0.3,
+        )
+        company_name = response.choices[0].message.content or "Unknown Company"
+        company_name = company_name.strip()
+        
+        print(f"Extracted company name: '{company_name}'")
+        return company_name
+        
+    except Exception as e:
+        print(f"Error extracting company name: {e}")
+        return "Unknown Company"
+
 # --- Extract resume text from a file ---
 @app.post("/extract_resume_text")
 def extract_resume_text(file_path: str):
@@ -340,6 +511,10 @@ class ScrapeRequest(BaseModel):
 class ScrapeResponse(BaseModel):
     job_description: str
 
+class ScrapeAndResearchResponse(BaseModel):
+    job_description: str
+    company_info: dict
+
 @app.post("/scrape_job_posting", response_model=ScrapeResponse)
 async def scrape_job_posting(req: ScrapeRequest):
     print("=== JOB SCRAPING STARTED ===")
@@ -359,6 +534,122 @@ async def scrape_job_posting(req: ScrapeRequest):
 
     print("=== JOB SCRAPING COMPLETED SUCCESSFULLY ===")
     return ScrapeResponse(job_description=job_text)
+
+# --- Company Research Endpoint ---
+@app.post("/research_company")
+async def research_company(req: CompanyResearchRequest):
+    print("=== COMPANY RESEARCH STARTED ===")
+    print(f"Job description length: {len(req.job_description)} characters")
+    
+    # --- Rate Limiting Logic ---
+    now = time.time()
+    global request_times
+    request_times = [t for t in request_times if now - t < WINDOW_SECONDS]
+    if len(request_times) >= REQUEST_LIMIT:
+        raise HTTPException(status_code=429, detail="API rate limit exceeded. Please try again later.")
+    request_times.append(now)
+
+    # Extract company name from job description
+    company_name = extract_company_name(req.job_description)
+    print(f"Extracted company name: {company_name}")
+
+    # --- Construct the AI Prompt with company name ---
+    enhanced_prompt = f"""
+{COMPANY_RESEARCH_PROMPT}
+
+### Company Name: {company_name}
+
+Please research this specific company: {company_name}
+
+Job Description:
+{req.job_description}
+"""
+
+    # --- Call OpenAI ChatGPT API ---
+    print("Calling OpenAI API for company research...")
+    
+    response = openai.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": enhanced_prompt}],
+        max_tokens=2000,  # Increased for comprehensive company research
+        temperature=0.7,
+    )
+    content = response.choices[0].message.content or ""
+    
+    print("=== OPENAI COMPANY RESEARCH RESPONSE ===")
+    print(content)
+    print("=== END OPENAI COMPANY RESEARCH RESPONSE ===")
+    
+    # Parse the response into structured sections
+    company_info = parse_company_research_response(content)
+    
+    print("=== COMPANY RESEARCH COMPLETED SUCCESSFULLY ===")
+    return company_info
+
+# --- Combined Scrape and Research Endpoint ---
+@app.post("/scrape_and_research", response_model=ScrapeAndResearchResponse)
+async def scrape_and_research(req: ScrapeRequest):
+    print("=== SCRAPE AND RESEARCH STARTED ===")
+    print(f"URL to scrape: {req.url}")
+    
+    # First scrape the job posting
+    job_text = await try_basic_scraping(req.url)
+    
+    # If basic scraping failed, try with Playwright
+    if not job_text:
+        print("Basic scraping failed, trying with Playwright...")
+        job_text = await try_playwright_scraping(req.url)
+    
+    if not job_text:
+        print("ERROR: No job text extracted!")
+        raise HTTPException(status_code=404, detail="Could not extract job description.")
+
+    # Then research the company
+    print("Job scraping successful, now researching company...")
+    
+    # --- Rate Limiting Logic ---
+    now = time.time()
+    global request_times
+    request_times = [t for t in request_times if now - t < WINDOW_SECONDS]
+    if len(request_times) >= REQUEST_LIMIT:
+        raise HTTPException(status_code=429, detail="API rate limit exceeded. Please try again later.")
+    request_times.append(now)
+
+    # Extract company name from job description
+    company_name = extract_company_name(job_text)
+    print(f"Extracted company name: {company_name}")
+
+    # --- Construct the AI Prompt for company research ---
+    enhanced_prompt = f"""
+{COMPANY_RESEARCH_PROMPT}
+
+### Company Name: {company_name}
+
+Please research this specific company: {company_name}
+
+Job Description:
+{job_text}
+"""
+
+    # --- Call OpenAI ChatGPT API for company research ---
+    print("Calling OpenAI API for company research...")
+    
+    response = openai.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": enhanced_prompt}],
+        max_tokens=2000,
+        temperature=0.7,
+    )
+    content = response.choices[0].message.content or ""
+    
+    # Parse the company research response
+    company_info = parse_company_research_response(content)
+    
+    print("=== SCRAPE AND RESEARCH COMPLETED SUCCESSFULLY ===")
+    return ScrapeAndResearchResponse(
+        job_description=job_text,
+        company_info=company_info
+    )
 
 async def try_basic_scraping(url: str) -> str:
     """Try to scrape content using requests and BeautifulSoup"""

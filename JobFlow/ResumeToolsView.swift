@@ -20,6 +20,9 @@ struct ResumeToolsView: View {
     @State private var isExtractingResume = false
     @State private var isFetchingJob = false // Indicates if job fetching is in progress
     @State private var jobFetchStatus: String? = nil // Stores job fetch status message
+    @State private var isResearchingCompany = false // Indicates if company research is in progress
+    @State private var companyResearchStatus: String? = nil // Stores company research status message
+    @State private var companyInfo: CompanyInfo? = nil // Stores company research results
 
     var body: some View {
         ScrollView {
@@ -41,7 +44,15 @@ struct ResumeToolsView: View {
                     jobFetchStatus: $jobFetchStatus,
                     onFetchJob: fetchJobDescription
                 )
-                // --- 3. Generate & Optimize Card ---
+                // --- 3. Company Research Card ---
+                CompanyResearchCard(
+                    jobDescription: $jobDescription,
+                    isResearchingCompany: $isResearchingCompany,
+                    companyResearchStatus: $companyResearchStatus,
+                    companyInfo: $companyInfo,
+                    onResearchCompany: researchCompany
+                )
+                // --- 4. Generate & Optimize Card ---
                 GenerateOptimizeCard(
                     isProcessing: $isProcessing,
                     resumeGenerated: $resumeGenerated,
@@ -112,6 +123,26 @@ struct ResumeToolsView: View {
                     self.jobFetchStatus = "Job description fetched successfully!"
                 } else {
                     self.jobFetchStatus = "Failed to fetch job description: \(error ?? "Unknown error")"
+                }
+            }
+        }
+    }
+
+    // Handles company research
+    private func researchCompany() {
+        guard !jobDescription.isEmpty else { return }
+        
+        isResearchingCompany = true
+        companyResearchStatus = "Researching company..."
+        
+        researchCompanyFromJobDescription(jobDescription: jobDescription) { companyInfo, error in
+            DispatchQueue.main.async {
+                isResearchingCompany = false
+                if let companyInfo = companyInfo {
+                    self.companyInfo = companyInfo
+                    self.companyResearchStatus = "Company research completed successfully!"
+                } else {
+                    self.companyResearchStatus = "Failed to research company: \(error ?? "Unknown error")"
                 }
             }
         }
@@ -287,7 +318,180 @@ struct JobDescriptionAndLinkCard: View {
     }
 }
 
-// --- Card 3: Generate & Optimize ---
+// --- Company Info Data Structure ---
+struct CompanyInfo: Codable {
+    let company_overview: String
+    let market_customers: String
+    let key_products: String
+    let culture_values: String
+    let industry_competition: String
+    let growth_opportunities: String
+    let additional_insights: String
+}
+
+// --- Card 3: Company Research ---
+struct CompanyResearchCard: View {
+    @Binding var jobDescription: String
+    @Binding var isResearchingCompany: Bool
+    @Binding var companyResearchStatus: String?
+    @Binding var companyInfo: CompanyInfo?
+    let onResearchCompany: () -> Void
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Company Research")
+                .font(.title2).bold()
+            Text("Research the company from external sources to get comprehensive insights.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            // Research button
+            Button(action: onResearchCompany) {
+                HStack {
+                    if isResearchingCompany {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    } else {
+                        Image(systemName: "building.2")
+                            .font(.title2)
+                    }
+                    Text(isResearchingCompany ? "Researching..." : "Research Company")
+                        .font(.headline)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(jobDescription.isEmpty || isResearchingCompany)
+            
+            // Show research status
+            if let status = companyResearchStatus {
+                Text(status)
+                    .font(.caption)
+                    .foregroundColor(status.contains("successfully") ? .green : (status.contains("Researching") ? .orange : .red))
+            }
+            
+            // Show company research results
+            if let companyInfo = companyInfo {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Company Insights")
+                        .font(.headline)
+                        .padding(.top, 8)
+                    
+                    // Company Overview
+                    if !companyInfo.company_overview.isEmpty {
+                        CompanyInfoSection(
+                            title: "Company Overview",
+                            content: companyInfo.company_overview,
+                            icon: "building.2.fill",
+                            color: .blue
+                        )
+                    }
+                    
+                    // Market & Customers
+                    if !companyInfo.market_customers.isEmpty {
+                        CompanyInfoSection(
+                            title: "Market & Customers",
+                            content: companyInfo.market_customers,
+                            icon: "person.3.fill",
+                            color: .green
+                        )
+                    }
+                    
+                    // Key Products
+                    if !companyInfo.key_products.isEmpty {
+                        CompanyInfoSection(
+                            title: "Key Products",
+                            content: companyInfo.key_products,
+                            icon: "cube.fill",
+                            color: .orange
+                        )
+                    }
+                    
+                    // Culture & Values
+                    if !companyInfo.culture_values.isEmpty {
+                        CompanyInfoSection(
+                            title: "Culture & Values",
+                            content: companyInfo.culture_values,
+                            icon: "heart.fill",
+                            color: .red
+                        )
+                    }
+                    
+                    // Industry & Competition
+                    if !companyInfo.industry_competition.isEmpty {
+                        CompanyInfoSection(
+                            title: "Industry & Competition",
+                            content: companyInfo.industry_competition,
+                            icon: "chart.bar.fill",
+                            color: .purple
+                        )
+                    }
+                    
+                    // Growth & Opportunities
+                    if !companyInfo.growth_opportunities.isEmpty {
+                        CompanyInfoSection(
+                            title: "Growth & Opportunities",
+                            content: companyInfo.growth_opportunities,
+                            icon: "arrow.up.right.circle.fill",
+                            color: .teal
+                        )
+                    }
+                    
+                    // Additional Insights
+                    if !companyInfo.additional_insights.isEmpty {
+                        CompanyInfoSection(
+                            title: "Additional Insights",
+                            content: companyInfo.additional_insights,
+                            icon: "lightbulb.fill",
+                            color: .yellow
+                        )
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color.white))
+        .shadow(color: Color.black.opacity(0.03), radius: 2, x: 0, y: 1)
+    }
+}
+
+// --- Company Info Section Component ---
+struct CompanyInfoSection: View {
+    let title: String
+    let content: String
+    let icon: String
+    let color: Color
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: icon)
+                    .foregroundColor(color)
+                    .font(.title3)
+                Text(title)
+                    .font(.subheadline)
+                    .bold()
+                    .foregroundColor(.primary)
+            }
+            
+            Text(content)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .lineLimit(nil)
+                .multilineTextAlignment(.leading)
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 8).fill(color.opacity(0.05)))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(color.opacity(0.2), lineWidth: 1)
+        )
+    }
+}
+
+// --- Card 4: Generate & Optimize ---
 struct GenerateOptimizeCard: View {
     @Binding var isProcessing: Bool
     @Binding var resumeGenerated: Bool
@@ -579,6 +783,51 @@ func scrapeJobPosting(url: String, completion: @escaping (String?, String?) -> V
             } else {
                 completion(nil, "Failed to parse response")
             }
+        } catch {
+            print("JSON decode error: \(error)")
+            completion(nil, error.localizedDescription)
+        }
+    }.resume()
+}
+
+// Calls the backend to research company from job description
+func researchCompanyFromJobDescription(jobDescription: String, completion: @escaping (CompanyInfo?, String?) -> Void) {
+    guard let url = URL(string: "http://127.0.0.1:8000/research_company") else {
+        completion(nil, "Invalid backend URL")
+        return
+    }
+    
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    
+    let body = ["job_description": jobDescription]
+    request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+    
+    print("Researching company from job description...")
+    URLSession.shared.dataTask(with: request) { data, response, error in
+        if let error = error {
+            print("Network error: \(error)")
+            completion(nil, error.localizedDescription)
+            return
+        }
+        
+        if let httpResponse = response as? HTTPURLResponse {
+            print("HTTP Status: \(httpResponse.statusCode)")
+        }
+        
+        guard let data = data else {
+            print("No data received")
+            completion(nil, "No data received")
+            return
+        }
+        
+        print("Received company research response: \(String(data: data, encoding: .utf8) ?? "nil")")
+        
+        do {
+            let decoder = JSONDecoder()
+            let companyInfo = try decoder.decode(CompanyInfo.self, from: data)
+            completion(companyInfo, nil)
         } catch {
             print("JSON decode error: \(error)")
             completion(nil, error.localizedDescription)
