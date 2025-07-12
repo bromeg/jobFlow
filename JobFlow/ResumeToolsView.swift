@@ -18,6 +18,8 @@ struct ResumeToolsView: View {
     @State private var resumeUploadStatus: String? = nil // Stores upload status message
     @State private var extractedResumeText: String? = nil // Stores extracted text from file
     @State private var isExtractingResume = false
+    @State private var isFetchingJob = false // Indicates if job fetching is in progress
+    @State private var jobFetchStatus: String? = nil // Stores job fetch status message
 
     var body: some View {
         ScrollView {
@@ -34,7 +36,10 @@ struct ResumeToolsView: View {
                 // --- 2. Job Description & Link Card ---
                 JobDescriptionAndLinkCard(
                     jobDescription: $jobDescription,
-                    jobLink: $jobLink
+                    jobLink: $jobLink,
+                    isFetchingJob: $isFetchingJob,
+                    jobFetchStatus: $jobFetchStatus,
+                    onFetchJob: fetchJobDescription
                 )
                 // --- 3. Generate & Optimize Card ---
                 GenerateOptimizeCard(
@@ -90,6 +95,26 @@ struct ResumeToolsView: View {
         selectedResumeFile = nil
         resumeUploadStatus = nil
         extractedResumeText = nil
+    }
+    
+    // Handles fetching job description from URL
+    private func fetchJobDescription() {
+        guard !jobLink.isEmpty else { return }
+        
+        isFetchingJob = true
+        jobFetchStatus = "Fetching job description..."
+        
+        scrapeJobPosting(url: jobLink) { jobDescription, error in
+            DispatchQueue.main.async {
+                isFetchingJob = false
+                if let jobDescription = jobDescription {
+                    self.jobDescription = jobDescription
+                    self.jobFetchStatus = "Job description fetched successfully!"
+                } else {
+                    self.jobFetchStatus = "Failed to fetch job description: \(error ?? "Unknown error")"
+                }
+            }
+        }
     }
 
     // Triggers the backend analysis and updates state with results
@@ -214,6 +239,9 @@ struct ResumeCard: View {
 struct JobDescriptionAndLinkCard: View {
     @Binding var jobDescription: String
     @Binding var jobLink: String
+    @Binding var isFetchingJob: Bool
+    @Binding var jobFetchStatus: String?
+    let onFetchJob: () -> Void
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -231,15 +259,26 @@ struct JobDescriptionAndLinkCard: View {
                     RoundedRectangle(cornerRadius: 8)
                         .stroke(Color.gray.opacity(0.2), lineWidth: 1)
                 )
-            // Job link field (fetch not implemented yet)
+            // Job link field with fetch functionality
             HStack {
                 TextField("https://example.com/job-posting", text: $jobLink)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
-                Button("Fetch") {
-                    // TODO: Implement job fetching
+                Button(action: onFetchJob) {
+                    if isFetchingJob {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    } else {
+                        Text("Fetch")
+                    }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(jobLink.isEmpty)
+                .disabled(jobLink.isEmpty || isFetchingJob)
+            }
+            // Show fetch status
+            if let status = jobFetchStatus {
+                Text(status)
+                    .font(.caption)
+                    .foregroundColor(status.contains("successfully") ? .green : (status.contains("Fetching") ? .orange : .red))
             }
         }
         .padding(16)
@@ -497,4 +536,52 @@ func extractResumeTextFromFile(fileURL: URL, completion: @escaping (String?, Str
             completion(nil, error.localizedDescription)
         }
     }.resume()
-} 
+}
+
+// Calls the backend to scrape job description from a URL
+func scrapeJobPosting(url: String, completion: @escaping (String?, String?) -> Void) {
+    guard let backendURL = URL(string: "http://127.0.0.1:8000/scrape_job_posting") else {
+        completion(nil, "Invalid backend URL")
+        return
+    }
+    
+    var request = URLRequest(url: backendURL)
+    request.httpMethod = "POST"
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    
+    let body = ["url": url]
+    request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+    
+    print("Scraping job posting from URL: \(url)")
+    URLSession.shared.dataTask(with: request) { data, response, error in
+        if let error = error {
+            print("Network error: \(error)")
+            completion(nil, error.localizedDescription)
+            return
+        }
+        
+        if let httpResponse = response as? HTTPURLResponse {
+            print("HTTP Status: \(httpResponse.statusCode)")
+        }
+        
+        guard let data = data else {
+            print("No data received")
+            completion(nil, "No data received")
+            return
+        }
+        
+        print("Received scraping response: \(String(data: data, encoding: .utf8) ?? "nil")")
+        
+        do {
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let jobDescription = json["job_description"] as? String {
+                completion(jobDescription, nil)
+            } else {
+                completion(nil, "Failed to parse response")
+            }
+        } catch {
+            print("JSON decode error: \(error)")
+            completion(nil, error.localizedDescription)
+        }
+    }.resume()
+}
