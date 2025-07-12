@@ -24,7 +24,7 @@ Managing job applications across multiple platforms and tailoring resumes for ea
 
 ## User Stories
 - As a job seeker, I want to connect my inbox so that application statuses update automatically. (Coming soon)
-- As a job seeker, I want to evaluate how well my resume fits a job description so I can focus on high-fit roles. (Coming soon)
+- As a job seeker, I want to evaluate how well my resume fits a job description so I can focus on high-fit roles.
 - As a job seeker, I want to generate tailored resumes that will perform better with ATS. (Coming soon)
 - As a job seeker, I want to keep notes on each application so I can remember key details.
 - As a job seeker, I want to rate my interest in each job so I can prioritize where to follow up.
